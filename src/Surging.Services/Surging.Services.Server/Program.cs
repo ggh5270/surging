@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using Microsoft.Extensions.Logging;
 using Surging.Core.Caching;
 using Surging.Core.Caching.Configurations;
 using Surging.Core.Codec.MessagePack;
@@ -12,6 +13,7 @@ using Surging.Core.EventBusKafka.Configurations;
 //using Surging.Core.EventBusKafka;
 using Surging.Core.EventBusRabbitMQ;
 using Surging.Core.Log4net;
+using Surging.Core.Nlog;
 using Surging.Core.ProxyGenerator;
 using Surging.Core.ServiceHosting;
 using Surging.Core.ServiceHosting.Internal.Implementation;
@@ -56,7 +58,9 @@ namespace Surging.Services.Server
                         builder.Register(p => new CPlatformContainer(ServiceLocator.Current));
                     });
                 })
-                .SubscribeAt()
+                .SubscribeAt() 
+               // .UseLog4net(LogLevel.Error, "Configs/log4net.config")
+                .UseNLog(LogLevel.Error, "Configs/NLog.config")
                 //.UseServer("127.0.0.1", 98)
                 //.UseServer("127.0.0.1", 98，“true”) //自动生成Token
                 //.UseServer("127.0.0.1", 98，“123456789”) //固定密码Token
@@ -74,7 +78,6 @@ namespace Surging.Services.Server
                 build.AddCacheFile("cacheSettings.json", optional: false,reloadOnChange:true))
                   .Configure(build =>
                 build.AddCPlatformFile("surgingSettings.json", optional: false, reloadOnChange: true))
-                .UseLog4net("Configs/log4net.config")
                 .UseProxy()
                 .UseStartup<Startup>()
                 .Build();
