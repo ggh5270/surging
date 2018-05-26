@@ -123,18 +123,38 @@ namespace Surging.Core.Zookeeper
                     if (!DataEquals(nodeData, onlineData))
                         await _zooKeeper.setDataAsync(nodePath, nodeData);
                 }
+                NodeChange(command);
             }
             if (_logger.IsEnabled(LogLevel.Information))
                 _logger.LogInformation("服务命令添加成功。");
         }
 
-
         protected override async Task InitServiceCommandsAsync(IEnumerable<ServiceCommandDescriptor> serviceCommands)
         {
             var commands = await GetServiceCommands(serviceCommands.Select(p => p.ServiceId));
-            if (commands.Count() == 0)
+            if (commands.Count() == 0 || _configInfo.ReloadOnChange)
             {
+                await RemoveExceptRoutesAsync(serviceCommands);
                 await SetServiceCommandsAsync(serviceCommands);
+            }
+        }
+
+        private async Task RemoveExceptRoutesAsync(IEnumerable<ServiceCommandDescriptor> serviceCommands)
+        {
+                 var path = _configInfo.CommandPath;
+            if (!path.EndsWith("/"))
+                path += "/";
+            serviceCommands = serviceCommands.ToArray();
+
+            if (_serviceCommands != null)
+            {
+                var oldCommandIds = _serviceCommands.Select(i => i.ServiceId).ToArray();
+                var newCommandIds = serviceCommands.Select(i => i.ServiceId).ToArray();
+                var deletedRCommandIds = oldCommandIds.Except(newCommandIds).ToArray();
+                foreach (var deletedRCommandId in deletedRCommandIds)
+                {
+                    await _zooKeeper.deleteAsync($"{path}{deletedRCommandId}");
+                }
             }
         }
 
@@ -148,11 +168,15 @@ namespace Surging.Core.Zookeeper
                     {
                         _connectionWait.Set();
                     },
-                    async () =>
+                    () =>
                     {
-                        _connectionWait.Reset();
-                        await CreateZooKeeper();
-                    }));
+                        _connectionWait.Close();
+                    },
+                     async () =>
+                     {
+                         _connectionWait.Reset();
+                         await CreateZooKeeper();
+                     }));
 
         }
 
@@ -262,6 +286,23 @@ namespace Surging.Core.Zookeeper
                     return false;
             }
             return true;
+        }
+
+        public void NodeChange(ServiceCommandDescriptor newCommand)
+        {
+            //得到旧的服务命令。
+            var oldCommand = _serviceCommands.FirstOrDefault(i => i.ServiceId == newCommand.ServiceId);
+
+            lock (_serviceCommands)
+            {
+                //删除旧服务命令，并添加上新的服务命令。
+                _serviceCommands =
+                    _serviceCommands
+                        .Where(i => i.ServiceId != newCommand.ServiceId)
+                        .Concat(new[] { newCommand }).ToArray();
+            }
+            //触发服务命令变更事件。
+            OnChanged(new ServiceCommandChangedEventArgs(newCommand, oldCommand));
         }
 
         public void NodeChange(byte[] oldData, byte[] newData)

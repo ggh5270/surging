@@ -94,28 +94,60 @@ namespace Surging.Core.Consul
             OnChanged(new ServiceCommandChangedEventArgs(newCommand, oldCommand));
         }
 
+        public void NodeChange(ServiceCommandDescriptor newCommand)
+        { 
+            //得到旧的服务命令。
+            var oldCommand = _serviceCommands.FirstOrDefault(i => i.ServiceId == newCommand.ServiceId);
+
+            lock (_serviceCommands)
+            {
+                //删除旧服务命令，并添加上新的服务命令。
+                _serviceCommands =
+                    _serviceCommands
+                        .Where(i => i.ServiceId != newCommand.ServiceId)
+                        .Concat(new[] { newCommand }).ToArray();
+            }
+            //触发服务命令变更事件。
+            OnChanged(new ServiceCommandChangedEventArgs(newCommand, oldCommand));
+        }
+
         public override async Task SetServiceCommandsAsync(IEnumerable<ServiceCommandDescriptor> serviceCommands)
         {
             if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information))
                 _logger.LogInformation("准备添加服务命令。");
-            var serviceCommandIds = serviceCommands.Select(i => i.ServiceId).ToArray();
-            var newServiceCommands = _serviceCommands.Where(p => !serviceCommandIds.Contains(p.ServiceId)).ToList();
             foreach (var serviceCommand in serviceCommands)
             {
                 var nodeData = _serializer.Serialize(serviceCommand);
                 var keyValuePair = new KVPair($"{_configInfo.CommandPath}{serviceCommand.ServiceId}") { Value = nodeData };
-                await _consul.KV.Put(keyValuePair);
-                newServiceCommands.Add(serviceCommand);
-            }
-            _serviceCommands = newServiceCommands.ToArray();
+                var isSuccess=  await _consul.KV.Put(keyValuePair);
+                if (isSuccess.Response)
+                    NodeChange(serviceCommand);
+            } 
         }
 
         protected override async Task InitServiceCommandsAsync(IEnumerable<ServiceCommandDescriptor> serviceCommands)
         {
             var commands = await GetServiceCommands(serviceCommands.Select(p => $"{ _configInfo.CommandPath}{ p.ServiceId}"));
-            if (commands.Count() == 0)
+            if (commands.Count() == 0 || _configInfo.ReloadOnChange)
             {
+                await RemoveExceptRoutesAsync(serviceCommands);
                 await SetServiceCommandsAsync(serviceCommands);
+            }
+        }
+
+        private async Task RemoveExceptRoutesAsync(IEnumerable<ServiceCommandDescriptor> serviceCommands)
+        {
+            serviceCommands = serviceCommands.ToArray();
+
+            if (_serviceCommands != null)
+            {
+                var oldCommandIds = _serviceCommands.Select(i => i.ServiceId).ToArray();
+                var newCommandIds = serviceCommands.Select(i => i.ServiceId).ToArray();
+                var deletedRCommandIds = oldCommandIds.Except(newCommandIds).ToArray();
+                foreach (var deletedRCommandId in deletedRCommandIds)
+                {
+                    await _consul.KV.Delete($"{_configInfo.CommandPath}{deletedRCommandId}");
+                }
             }
         }
 
@@ -266,20 +298,19 @@ namespace Surging.Core.Consul
 
             //获取新增的服务命令信息。
             var newCommands = (await GetServiceCommands(createdChildrens)).ToArray();
-            if (_serviceCommands != null)
-            {
+           
                 var serviceCommands = _serviceCommands.ToArray();
                 lock (_serviceCommands)
                 {
                     _serviceCommands = _serviceCommands
                         //删除无效的节点服务命令。
-                        .Where(i => !deletedChildrens.Contains(i.ServiceId))
+                        .Where(i => !deletedChildrens.Contains($"{_configInfo.CommandPath}{i.ServiceId}"))
                         //连接上新的服务命令。
                         .Concat(newCommands)
                         .ToArray();
                 }
                 //需要删除的服务命令集合。
-                var deletedRoutes = serviceCommands.Where(i => deletedChildrens.Contains(i.ServiceId)).ToArray();
+                var deletedRoutes = serviceCommands.Where(i => deletedChildrens.Contains($"{_configInfo.CommandPath}{i.ServiceId}")).ToArray();
                 //触发删除事件。
                 OnRemoved(deletedRoutes.Select(command => new ServiceCommandEventArgs(command)).ToArray());
 
@@ -289,6 +320,5 @@ namespace Surging.Core.Consul
                 if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information))
                     _logger.LogInformation("服务命令数据更新成功。");
             }
-        }
     }
 }

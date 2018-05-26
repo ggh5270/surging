@@ -60,6 +60,7 @@ namespace Surging.ApiGateway
                 options.SerializerSettings.ContractResolver = new DefaultContractResolver();
             });
             services.AddLogging();
+            services.AddCors();
             var builder = new ContainerBuilder();
             builder.Populate(services); 
             builder.AddMicroService(option =>
@@ -74,6 +75,7 @@ namespace Surging.ApiGateway
                     option.UseZooKeeperManager(new ZookeeperConfigInfo(registerConfig.Address));
                 option.UseDotNettyTransport();
                 option.AddApiGateWay();
+                option.AddFilter(new ServiceExceptionFilter());
                 //option.UseProtoBufferCodec();
                 option.UseMessagePackCodec();
                 builder.Register(m => new CPlatformContainer(ServiceLocator.Current));
@@ -95,6 +97,19 @@ namespace Surging.ApiGateway
             {
                 app.UseExceptionHandler("/Home/Error");
             }
+            app.UseCors(builder =>
+            {
+                var policy = Core.ApiGateWay.AppConfig.Policy;
+                builder.WithOrigins(policy.Origins);
+                if (policy.AllowAnyHeader)
+                    builder.AllowAnyHeader();
+                if (policy.AllowAnyMethod)
+                    builder.AllowAnyMethod();
+                if (policy.AllowAnyOrigin)
+                    builder.AllowAnyOrigin();
+                if (policy.AllowCredentials)
+                    builder.AllowCredentials();
+            });
             var myProvider = new FileExtensionContentTypeProvider();
             myProvider.Mappings.Add(".tpl", "text/plain");
             app.UseStaticFiles(new StaticFileOptions() { ContentTypeProvider = myProvider });

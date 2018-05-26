@@ -151,8 +151,15 @@ namespace Surging.Core.Zookeeper
                     var serviceRoute = serviceRoutes.Where(p => p.ServiceDescriptor.Id == route.ServiceDescriptor.Id).FirstOrDefault();
                     if (serviceRoute != null)
                     {
-                        route.Address = serviceRoute.Address.Concat(
-                          route.Address.Except(serviceRoute.Address));
+                        var addresses = serviceRoute.Address.Concat(
+                          route.Address.Except(serviceRoute.Address)).ToList();
+
+                        foreach (var address in route.Address)
+                        {
+                            addresses.Remove(addresses.Where(p => p.ToString() == address.ToString()).FirstOrDefault());
+                            addresses.Add(address);
+                        }
+                        route.Address = addresses;
                     }
                 }
             }
@@ -189,16 +196,20 @@ namespace Surging.Core.Zookeeper
             if (_zooKeeper != null)
                 await _zooKeeper.closeAsync();
             _zooKeeper = new ZooKeeper(_configInfo.ConnectionString, (int)_configInfo.SessionTimeout.TotalMilliseconds
-               , new ReconnectionWatcher(
-                    () =>
-                    {
-                        _connectionWait.Set();
-                    },
-                    async () =>
-                    {
-                        _connectionWait.Reset();
-                        await CreateZooKeeper();
-                    }));
+             , new ReconnectionWatcher(
+                () =>
+                {
+                    _connectionWait.Set();
+                },
+                () =>
+                {
+                    _connectionWait.Close();
+                },
+                async () =>
+                {
+                    _connectionWait.Reset();
+                    await CreateZooKeeper();
+                }));
 
         }
 
