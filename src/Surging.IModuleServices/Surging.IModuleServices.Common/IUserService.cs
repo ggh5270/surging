@@ -27,7 +27,7 @@ namespace Surging.IModuleServices.Common
         [Service(Date = "2017-8-11", Director = "fanly", Name = "获取用户")]
         Task<string> GetUserName(int id);
 
-        [Service(Date = "2017-8-11", Director = "fanly", Name = "根据id查找用户是否存在")]
+        [Service(Date = "2017-8-11", Director = "fanly", DisableNetwork =true, Name = "根据id查找用户是否存在")]
         Task<bool> Exists(int id);
 
         [Authorization(AuthType = AuthorizationType.JWT)]
