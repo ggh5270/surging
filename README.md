@@ -15,6 +15,9 @@
 
 我对阁下的景仰犹如滔滔江水,连绵不绝,犹如黄河泛滥,一发而不可收拾，而取名英文的含义也希望此框架能流行起来，也能像《.net core surging》这句英文语句含义一样，.net core技术风起云涌,冲击整个软件生态系统。
 
+### 微服务定义
+微服务应该是可以自由组合拆分，对于每个业务都是独立的，针对于业务模块的 CRUD 可以注册为服务，而每个服务都是高度自治的，从开发，部署都是独立，而每个服务只做单一功能，利用领域驱动设计去更好的拆分成粒度更小的模块
+
 
 ### surging模块功能
 
@@ -81,6 +84,49 @@ var host = new ServiceHostBuilder()
             }
  ```    
 <br/>
+
+### 文件配置：
+
+```c#
+{
+  "ConnectionString": "${Register_Conn}|127.0.0.1:8500", // ${环境变量名} |默认值,
+  "SessionTimeout": "${Register_SessionTimeout}|50",
+  "ReloadOnChange": true
+}
+
+```
+
+### 非容器环境文件配置
+
+```c#
+ {
+  "Ip": "${Server_IP}|127.0.0.1",
+  "WatchInterval": 30,
+  "Port": "${Server_port}",
+  "Token": "true",
+  "RootPath": "${RootPath}",
+  "RequestCacheEnabled": false
+}
+
+```
+
+
+### 容器环境文件配置
+
+```c#
+ {
+  "Ip": "${Server_IP}|0.0.0.0",//私有容器IP
+  "WatchInterval": 30,
+  "Port": "${Server_port}|98",//私有容器端口
+   "MappingIp": "${Mapping_ip}",//公开主机IP
+  "MappingPort": "${Mapping_Port}",//公开主机端口
+  "Token": "true",
+  "RootPath": "${RootPath}",
+  "RequestCacheEnabled": false
+}
+
+```
+
 
 服务路由访问配置：
 <br/>

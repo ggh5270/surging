@@ -5,11 +5,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Surging.Core.ApiGateWay.OAuth.Implementation.Configurations
+namespace Surging.Core.Consul.Configurations
 {
-   public class GatewayConfigurationProvider : FileConfigurationProvider
+   public class ConsulConfigurationProvider : FileConfigurationProvider
     {
-        public GatewayConfigurationProvider(GatewayConfigurationSource source) : base(source) { }
+        public ConsulConfigurationProvider(ConsulConfigurationSource source) : base(source) { }
 
         public override void Load(Stream stream)
         {

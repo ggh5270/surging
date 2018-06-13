@@ -10,9 +10,15 @@ namespace Surging.Core.CPlatform.Configurations
     {
         public string Ip { get; set; }
 
+        public string MappingIP { get; set; }
+
+        public int MappingPort { get; set; }
+
         public double WatchInterval { get; set; } = 20d;
 
         public IPEndPoint IpEndpoint { get; set; }
+
+        public string RootPath { get; set; }
 
         public int Port { get; set; }
 
