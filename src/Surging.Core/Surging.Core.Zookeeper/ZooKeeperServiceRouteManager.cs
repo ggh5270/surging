@@ -290,9 +290,8 @@ namespace Surging.Core.Zookeeper
             if (_routes != null)
                 return;
             _connectionWait.WaitOne();
-
             var watcher = new ChildrenMonitorWatcher(_zooKeeper, _configInfo.RoutePath,
-                async (oldChildrens, newChildrens) => await ChildrenChange(oldChildrens, newChildrens));
+             async (oldChildrens, newChildrens) => await ChildrenChange(oldChildrens, newChildrens));
             if (await _zooKeeper.existsAsync(_configInfo.RoutePath, watcher) != null)
             {
                 var result = await _zooKeeper.getChildrenAsync(_configInfo.RoutePath, watcher);
@@ -339,6 +338,7 @@ namespace Surging.Core.Zookeeper
                         .Where(i => i.ServiceDescriptor.Id != newRoute.ServiceDescriptor.Id)
                         .Concat(new[] { newRoute }).ToArray();
             }
+
             //触发路由变更事件。
             OnChanged(new ServiceRouteChangedEventArgs(newRoute, oldRoute));
         }
@@ -356,10 +356,10 @@ namespace Surging.Core.Zookeeper
             //计算出新增的节点。
             var createdChildrens = newChildrens.Except(oldChildrens).ToArray();
 
-            if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation($"需要被删除的路由节点：{string.Join(",", deletedChildrens)}");
-            if (_logger.IsEnabled(LogLevel.Information))
-                _logger.LogInformation($"需要被添加的路由节点：{string.Join(",", createdChildrens)}");
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug($"需要被删除的路由节点：{string.Join(",", deletedChildrens)}");
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug($"需要被添加的路由节点：{string.Join(",", createdChildrens)}");
 
             //获取新增的路由信息。
             var newRoutes = (await GetRoutes(createdChildrens)).ToArray();

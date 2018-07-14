@@ -77,7 +77,7 @@ namespace Surging.Core.CPlatform
         /// <returns>服务描述符。</returns>
         public static bool EnableAuthorization(this ServiceDescriptor descriptor)
         {
-            return descriptor.GetMetadata("EnableAuthorization", true);
+            return descriptor.GetMetadata("EnableAuthorization", false);
         }
 
         /// <summary>
@@ -185,7 +185,12 @@ namespace Surging.Core.CPlatform
         /// 服务Id。
         /// </summary>
         public string Id { get; set; }
-        
+
+        /// <summary>
+        /// 访问的令牌
+        /// </summary>
+        public string Token { get; set; }
+
         /// <summary>
         /// 路由
         /// </summary>

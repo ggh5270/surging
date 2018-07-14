@@ -272,7 +272,6 @@ namespace Surging.Core.Zookeeper
                 return;
             _connectionWait.WaitOne();
             var path = _configInfo.CachePath;
-
             var watcher = new ChildrenMonitorWatcher(_zooKeeper, path,
                 async (oldChildrens, newChildrens) => await ChildrenChange(oldChildrens, newChildrens));
             if (await _zooKeeper.existsAsync(path, watcher) != null)
@@ -366,8 +365,9 @@ namespace Surging.Core.Zookeeper
                         .Where(i => i.CacheDescriptor.Id != newCache.CacheDescriptor.Id)
                         .Concat(new[] { newCache }).ToArray();
             }
+            
             //触发缓存变更事件。
-            OnChanged(new ServiceCacheChangedEventArgs(newCache, oldCache));
+             OnChanged(new ServiceCacheChangedEventArgs(newCache, oldCache));
         }
 
         private async Task ChildrenChange(string[] oldChildrens, string[] newChildrens)
@@ -383,10 +383,10 @@ namespace Surging.Core.Zookeeper
             //计算出新增的节点。
             var createdChildrens = newChildrens.Except(oldChildrens).ToArray();
 
-            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information))
-                _logger.LogInformation($"需要被删除的服务缓存节点：{string.Join(",", deletedChildrens)}");
-            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information))
-                _logger.LogInformation($"需要被添加的服务缓存节点：{string.Join(",", createdChildrens)}");
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug($"需要被删除的服务缓存节点：{string.Join(",", deletedChildrens)}");
+            if (_logger.IsEnabled(LogLevel.Debug))
+                _logger.LogDebug($"需要被添加的服务缓存节点：{string.Join(",", createdChildrens)}");
 
             //获取新增的缓存信息。
             var newCaches = (await GetCaches(createdChildrens)).ToArray();

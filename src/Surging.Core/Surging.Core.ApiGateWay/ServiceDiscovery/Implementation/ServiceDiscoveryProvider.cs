@@ -44,15 +44,7 @@ namespace Surging.Core.ApiGateWay.ServiceDiscovery.Implementation
             routes.ToList().ForEach(route =>
             {
                 var addresses = new List<AddressModel>();
-                route.Address.ToList().ForEach(addressModel =>
-                {
-                    if (addressModel.ToString() == address.ToString())
-                    {
-                        addressModel.Token = address.Token;
-                        addressModel.DisableAuth = address.DisableAuth;
-                    }
-                    addresses.Add(addressModel);
-                });
+
                 serviceRoutes.Add(new ServiceRoute()
                 {
                     ServiceDescriptor = route.ServiceDescriptor,

@@ -16,12 +16,14 @@ using Surging.Core.CPlatform.Configurations;
 using Surging.Core.CPlatform.Module;
 using System.Diagnostics;
 using Surging.Core.CPlatform.Engines;
+using Surging.Core.CPlatform.Utilities;
+using System.Collections.Generic;
 
 namespace Surging.Core.CPlatform
 {
     public static class ServiceHostBuilderExtensions
     {
-        public static IServiceHostBuilder UseServer(this IServiceHostBuilder hostBuilder, string ip, int port, string token="True")
+        public static IServiceHostBuilder UseServer(this IServiceHostBuilder hostBuilder, string ip, int port, string token = "True")
         {
             return hostBuilder.MapServices(mapper =>
             {
@@ -29,11 +31,11 @@ namespace Surging.Core.CPlatform
                 mapper.Resolve<IServiceCommandManager>().SetServiceCommandsAsync();
                 var serviceEntryManager = mapper.Resolve<IServiceEntryManager>();
                 string serviceToken = mapper.Resolve<IServiceTokenGenerator>().GeneratorToken(token);
-                int _port = AppConfig.ServerOptions.Port==0? port: AppConfig.ServerOptions.Port;
-                string _ip = AppConfig.ServerOptions.Ip??ip;
+                int _port = AppConfig.ServerOptions.Port == 0 ? port : AppConfig.ServerOptions.Port;
+                string _ip = AppConfig.ServerOptions.Ip ?? ip;
                 _port = AppConfig.ServerOptions.IpEndpoint?.Port ?? _port;
                 _ip = AppConfig.ServerOptions.IpEndpoint?.Address.ToString() ?? _ip;
-               
+
 
                 if (_ip.IndexOf(".") < 0 || _ip == "" || _ip == "0.0.0.0")
                 {
@@ -54,26 +56,36 @@ namespace Surging.Core.CPlatform
                         }
                     }
                 }
-                var mappingIp= AppConfig.ServerOptions.MappingIP ?? _ip;
+                var mappingIp = AppConfig.ServerOptions.MappingIP ?? _ip;
                 var mappingPort = AppConfig.ServerOptions.MappingPort;
                 if (mappingPort == 0)
                     mappingPort = _port;
-                new ServiceRouteWatch(mapper.Resolve<CPlatformContainer>(),  () =>
+                if (AppConfig.ServerOptions.Protocol == CommunicationProtocol.Tcp ||
+                AppConfig.ServerOptions.Protocol == CommunicationProtocol.None)
+                    new ServiceRouteWatch(mapper.Resolve<CPlatformContainer>(),  () =>
                 {
                     var addressDescriptors = serviceEntryManager.GetEntries().Select(i =>
-                    new ServiceRoute
                     {
-                        Address = new[] { new IpAddressModel { Ip = mappingIp, Port = mappingPort, ProcessorTime = Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds, Token = serviceToken } },
-                        ServiceDescriptor = i.Descriptor
+                        i.Descriptor.Token = serviceToken;
+                       return new ServiceRoute
+                        {
+                            Address = new[] { new IpAddressModel { Ip = mappingIp, Port = mappingPort,
+                            ProcessorTime = Math.Round(Convert.ToDecimal(Process.GetCurrentProcess().TotalProcessorTime.TotalSeconds),2, MidpointRounding.AwayFromZero),
+                           } },
+                            ServiceDescriptor = i.Descriptor
+
+                        };
                     }).ToList();
                     mapper.Resolve<IServiceRouteManager>().SetRoutesAsync(addressDescriptors);
                 });
 
                 mapper.Resolve<IModuleProvider>().Initialize();
-                var serviceHost = mapper.Resolve<Runtime.Server.IServiceHost>();
+                var serviceHosts = mapper.Resolve<IList<Runtime.Server.IServiceHost>>();
                 Task.Factory.StartNew(async () =>
                 {
-                    await serviceHost.StartAsync(new IPEndPoint(IPAddress.Parse(_ip), _port));
+                    foreach(var serviceHost in serviceHosts)
+                    await serviceHost.StartAsync(_ip,_port);
+                    mapper.Resolve<IServiceEngineLifetime>().NotifyStarted();
                 }).Wait();
             });
         }
@@ -104,19 +116,17 @@ namespace Surging.Core.CPlatform
                     };
                 }).ToList();
                 mapper.Resolve<IServiceSubscribeManager>().SetSubscribersAsync(addressDescriptors);
-
+                mapper.Resolve<IModuleProvider>().Initialize();
             });
         }
 
         public static void BuildServiceEngine(IContainer container)
         {
-            if(container.IsRegistered<IServiceEngine>())
+            if (container.IsRegistered<IServiceEngine>())
             {
-                using (var soap = container.BeginLifetimeScope(
-                  builder =>
-                  {
-                      container.Resolve<IServiceEngineBuilder>().Build(builder);
-                  })) {}
+                var builder = new ContainerBuilder();
+                container.Resolve<IServiceEngineBuilder>().Build(builder);
+                builder.Update(container);
             }
         }
     }
