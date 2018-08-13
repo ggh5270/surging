@@ -2,22 +2,23 @@
   "Surging": {
     "Ip": "${Surging_Server_IP}|127.0.0.1",
     "WatchInterval": 30,
-    "Port": "${Surging_Server_Port}|98",
+    "Port": "${Surging_Server_Port}|99",
     "MappingIp": "${Mapping_ip}",
     "MappingPort": "${Mapping_Port}",
     "Token": "true",
     "MaxConcurrentRequests": 20,
     "ExecutionTimeoutInMilliseconds": 30000,
     "Protocol": "${Protocol}|None", //Http、Tcp、None
-    "RootPath": "${RootPath}|D:\\microsurging",
+    "RootPath": "${RootPath}|D:\\userapp1",
     "Ports": {
-      "HttpPort": "${HttpPort}|280"
+      "HttpPort": "${HttpPort}|280",
+      "WSPort": "${WSPort}|96"
     },
     "RequestCacheEnabled": false,
     "Packages": [
       {
         "TypeName": "EnginePartModule",
-        "Using": "${UseEngineParts}|DotNettyModule;NLogModule;MessagePackModule;ConsulModule;HttpProtocolModule;EventBusRabbitMQModule;"
+        "Using": "${UseEngineParts}|DotNettyModule;NLogModule;MessagePackModule;ConsulModule;HttpProtocolModule;EventBusRabbitMQModule;WSProtocolModule;"
       }
     ]
   }, //如果引用多个同类型的组件，需要配置Packages，如果是自定义按需引用，无需配置Packages
@@ -32,6 +33,9 @@
     "EventBusUserName": "guest",
     "EventBusPassword": "guest",
     "VirtualHost": "/",
+    "MessageTTL": 30000,
+    "RetryCount": 1,
+    "FailCount": 3,
     "BrokerName": "surging_demo",
     "Port": "5672"
   },

@@ -188,10 +188,10 @@ namespace WebSocketCore.Server
         throw new ArgumentException (msg, "url");
       }
 
-      //if (!addr.IsLocal ()) {
-      //  msg = "The IP address of the host is not a local IP address.";
-      //  throw new ArgumentException (msg, "url");
-      //}
+      if (!addr.IsLocal ()) {
+        msg = "The IP address of the host is not a local IP address.";
+        throw new ArgumentException (msg, "url");
+      }
 
       init (host, addr, uri.Port, uri.Scheme == "wss");
     }
@@ -420,12 +420,11 @@ namespace WebSocketCore.Server
     }
 
     /// <summary>
-    /// Gets a value indicating whether the server provides
-    /// secure connections.
+    /// Gets a value indicating whether secure connections are provided.
     /// </summary>
     /// <value>
-    /// <c>true</c> if the server provides secure connections;
-    /// otherwise, <c>false</c>.
+    /// <c>true</c> if this instance provides secure connections; otherwise,
+    /// <c>false</c>.
     /// </value>
     public bool IsSecure {
       get {
@@ -582,19 +581,24 @@ namespace WebSocketCore.Server
     /// Gets the configuration for secure connections.
     /// </summary>
     /// <remarks>
-    /// The configuration will be referenced when the server starts.
-    /// So you must configure it before calling the start method.
+    /// This configuration will be referenced when attempts to start,
+    /// so it must be configured before the start method is called.
     /// </remarks>
     /// <value>
     /// A <see cref="ServerSslConfiguration"/> that represents
     /// the configuration used to provide secure connections.
     /// </value>
+    /// <exception cref="InvalidOperationException">
+    /// This instance does not provide secure connections.
+    /// </exception>
     public ServerSslConfiguration SslConfiguration {
       get {
-        if (_sslConfig == null)
-          _sslConfig = new ServerSslConfiguration ();
+        if (!_secure) {
+          var msg = "This instance does not provide secure connections.";
+          throw new InvalidOperationException (msg);
+        }
 
-        return _sslConfig;
+        return getSslConfiguration ();
       }
     }
 
@@ -720,6 +724,17 @@ namespace WebSocketCore.Server
       _state = ServerState.Stop;
     }
 
+    private bool authenticateClient (TcpListenerWebSocketContext context)
+    {
+      if (_authSchemes == AuthenticationSchemes.Anonymous)
+        return true;
+
+      if (_authSchemes == AuthenticationSchemes.None)
+        return false;
+
+      return context.Authenticate (_authSchemes, _realmInUse, _userCredFinder);
+    }
+
     private bool canSet (out string message)
     {
       message = null;
@@ -744,22 +759,14 @@ namespace WebSocketCore.Server
              || name == _hostname;
     }
 
-    private bool checkSslConfiguration (
+    private static bool checkSslConfiguration (
       ServerSslConfiguration configuration, out string message
     )
     {
       message = null;
 
-      if (!_secure)
-        return true;
-
-      if (configuration == null) {
-        message = "There is no configuration for secure connections.";
-        return false;
-      }
-
       if (configuration.ServerCertificate == null) {
-        message = "There is no certificate in the configuration.";
+        message = "There is no server certificate for secure connections.";
         return false;
       }
 
@@ -774,9 +781,10 @@ namespace WebSocketCore.Server
 
     private ServerSslConfiguration getSslConfiguration ()
     {
-      return _secure && _sslConfig != null
-             ? new ServerSslConfiguration (_sslConfig)
-             : null;
+      if (_sslConfig == null)
+        _sslConfig = new ServerSslConfiguration ();
+
+      return _sslConfig;
     }
 
     private void init (
@@ -798,6 +806,11 @@ namespace WebSocketCore.Server
 
     private void processRequest (TcpListenerWebSocketContext context)
     {
+      if (!authenticateClient (context)) {
+        context.Close (HttpStatusCode.Forbidden);
+        return;
+      }
+
       var uri = context.RequestUri;
       if (uri == null) {
         context.Close (HttpStatusCode.BadRequest);
@@ -816,7 +829,7 @@ namespace WebSocketCore.Server
         }
       }
 
-      WebSocketServiceHost host;
+      WebSocketServiceHostBase host;
       if (!_services.InternalTryGetServiceHost (uri.AbsolutePath, out host)) {
         context.Close (HttpStatusCode.NotImplemented);
         return;
@@ -837,9 +850,6 @@ namespace WebSocketCore.Server
                 var ctx = new TcpListenerWebSocketContext (
                             cl, null, _secure, _sslConfigInUse, _log
                           );
-
-                if (!ctx.Authenticate (_authSchemes, _realmInUse, _userCredFinder))
-                  return;
 
                 processRequest (ctx);
               }
@@ -1175,65 +1185,70 @@ namespace WebSocketCore.Server
       _services.AddService<TBehaviorWithNew> (path, null);
     }
 
-    /// <summary>
-    /// Adds a WebSocket service with the specified behavior,
-    /// <paramref name="path"/>, and <paramref name="initializer"/>.
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="path"/> is converted to a URL-decoded string and
-    /// '/' is trimmed from the end of the converted string if any.
-    /// </remarks>
-    /// <param name="path">
-    /// A <see cref="string"/> that represents an absolute path to
-    /// the service to add.
-    /// </param>
-    /// <param name="initializer">
-    ///   <para>
-    ///   An <c>Action&lt;TBehaviorWithNew&gt;</c> delegate or
-    ///   <see langword="null"/> if not needed.
-    ///   </para>
-    ///   <para>
-    ///   That delegate invokes the method called for initializing
-    ///   a new session instance for the service.
-    ///   </para>
-    /// </param>
-    /// <typeparam name="TBehaviorWithNew">
-    ///   <para>
-    ///   The type of the behavior for the service.
-    ///   </para>
-    ///   <para>
-    ///   It must inherit the <see cref="WebSocketBehavior"/> class and
-    ///   have a public parameterless constructor.
-    ///   </para>
-    /// </typeparam>
-    /// <exception cref="ArgumentNullException">
-    /// <paramref name="path"/> is <see langword="null"/>.
-    /// </exception>
-    /// <exception cref="ArgumentException">
-    ///   <para>
-    ///   <paramref name="path"/> is an empty string.
-    ///   </para>
-    ///   <para>
-    ///   -or-
-    ///   </para>
-    ///   <para>
-    ///   <paramref name="path"/> is not an absolute path.
-    ///   </para>
-    ///   <para>
-    ///   -or-
-    ///   </para>
-    ///   <para>
-    ///   <paramref name="path"/> includes either or both
-    ///   query and fragment components.
-    ///   </para>
-    ///   <para>
-    ///   -or-
-    ///   </para>
-    ///   <para>
-    ///   <paramref name="path"/> is already in use.
-    ///   </para>
-    /// </exception>
-    public void AddWebSocketService<TBehaviorWithNew> (
+    public void AddWebSocketService(string path, WebSocketBehavior webSocketBehavior)
+    {
+        _services.AddService(path, webSocketBehavior);
+    }
+
+        /// <summary>
+        /// Adds a WebSocket service with the specified behavior,
+        /// <paramref name="path"/>, and <paramref name="initializer"/>.
+        /// </summary>
+        /// <remarks>
+        /// <paramref name="path"/> is converted to a URL-decoded string and
+        /// '/' is trimmed from the end of the converted string if any.
+        /// </remarks>
+        /// <param name="path">
+        /// A <see cref="string"/> that represents an absolute path to
+        /// the service to add.
+        /// </param>
+        /// <param name="initializer">
+        ///   <para>
+        ///   An <c>Action&lt;TBehaviorWithNew&gt;</c> delegate or
+        ///   <see langword="null"/> if not needed.
+        ///   </para>
+        ///   <para>
+        ///   That delegate invokes the method called for initializing
+        ///   a new session instance for the service.
+        ///   </para>
+        /// </param>
+        /// <typeparam name="TBehaviorWithNew">
+        ///   <para>
+        ///   The type of the behavior for the service.
+        ///   </para>
+        ///   <para>
+        ///   It must inherit the <see cref="WebSocketBehavior"/> class and
+        ///   have a public parameterless constructor.
+        ///   </para>
+        /// </typeparam>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="path"/> is <see langword="null"/>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///   <para>
+        ///   <paramref name="path"/> is an empty string.
+        ///   </para>
+        ///   <para>
+        ///   -or-
+        ///   </para>
+        ///   <para>
+        ///   <paramref name="path"/> is not an absolute path.
+        ///   </para>
+        ///   <para>
+        ///   -or-
+        ///   </para>
+        ///   <para>
+        ///   <paramref name="path"/> includes either or both
+        ///   query and fragment components.
+        ///   </para>
+        ///   <para>
+        ///   -or-
+        ///   </para>
+        ///   <para>
+        ///   <paramref name="path"/> is already in use.
+        ///   </para>
+        /// </exception>
+        public void AddWebSocketService<TBehaviorWithNew> (
       string path, Action<TBehaviorWithNew> initializer
     )
       where TBehaviorWithNew : WebSocketBehavior, new ()
@@ -1297,13 +1312,7 @@ namespace WebSocketCore.Server
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     ///   <para>
-    ///   There is no configuration for secure connections.
-    ///   </para>
-    ///   <para>
-    ///   -or-
-    ///   </para>
-    ///   <para>
-    ///   There is no certificate in the configuration.
+    ///   There is no server certificate for secure connections.
     ///   </para>
     ///   <para>
     ///   -or-
@@ -1314,11 +1323,15 @@ namespace WebSocketCore.Server
     /// </exception>
     public void Start ()
     {
-      var sslConfig = getSslConfiguration ();
+      ServerSslConfiguration sslConfig = null;
 
-      string msg;
-      if (!checkSslConfiguration (sslConfig, out msg))
-        throw new InvalidOperationException (msg);
+      if (_secure) {
+        sslConfig = new ServerSslConfiguration (getSslConfiguration ());
+
+        string msg;
+        if (!checkSslConfiguration (sslConfig, out msg))
+          throw new InvalidOperationException (msg);
+      }
 
       start (sslConfig);
     }
