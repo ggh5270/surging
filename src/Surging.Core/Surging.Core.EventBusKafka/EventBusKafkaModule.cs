@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Surging.Core.CPlatform.EventBus.Implementation;
 using Surging.Core.CPlatform.Engines;
+using System.Threading.Tasks;
 
 namespace Surging.Core.EventBusKafka
 {
@@ -21,9 +22,9 @@ namespace Surging.Core.EventBusKafka
             serviceProvider.GetInstances<ISubscriptionAdapt>().SubscribeAt();
             serviceProvider.GetInstances<IServiceEngineLifetime>().ServiceEngineStarted.Register(() =>
              {
-                 KafkaConsumerPersistentConnection connection= serviceProvider.GetInstances<IKafkaPersisterConnection>(KafkaConnectionType.Consumer.ToString()) as KafkaConsumerPersistentConnection;
-                 connection.Listening(TimeSpan.FromSeconds(1));
-             });
+                 KafkaConsumerPersistentConnection connection = serviceProvider.GetInstances<IKafkaPersisterConnection>(KafkaConnectionType.Consumer.ToString()) as KafkaConsumerPersistentConnection;
+                 connection.Listening(TimeSpan.FromMilliseconds(AppConfig.Options.Timeout));
+            });
         }
 
         /// <summary>
@@ -38,14 +39,14 @@ namespace Surging.Core.EventBusKafka
 
         public  EventBusKafkaModule UseKafkaMQTransport(ContainerBuilderWrapper builder)
         {
-            var kafkaOptions = new KafkaOptions();
+            AppConfig.Options = new KafkaOptions();
             var section = CPlatform.AppConfig.GetSection("EventBus_Kafka");
             if (section.Exists())
-                kafkaOptions = section.Get<KafkaOptions>();
+                AppConfig.Options = section.Get<KafkaOptions>();
             else if (AppConfig.Configuration != null)
-                kafkaOptions = AppConfig.Configuration.Get<KafkaOptions>();
-            AppConfig.KafkaConsumerConfig = kafkaOptions.GetConsumerConfig();
-            AppConfig.KafkaProducerConfig = kafkaOptions.GetProducerConfig();
+                AppConfig.Options = AppConfig.Configuration.Get<KafkaOptions>();
+            AppConfig.KafkaConsumerConfig = AppConfig.Options.GetConsumerConfig();
+            AppConfig.KafkaProducerConfig = AppConfig.Options.GetProducerConfig();
             builder.RegisterType(typeof(Implementation.EventBusKafka)).As(typeof(IEventBus)).SingleInstance();
             builder.RegisterType(typeof(DefaultConsumeConfigurator)).As(typeof(IConsumeConfigurator)).SingleInstance();
             builder.RegisterType(typeof(InMemoryEventBusSubscriptionsManager)).As(typeof(IEventBusSubscriptionsManager)).SingleInstance();
