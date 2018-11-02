@@ -30,7 +30,6 @@ namespace Surging.Services.Server
     {
         static void Main(string[] args)
         {
-
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             var host = new ServiceHostBuilder()
                 .RegisterServices(builder =>
