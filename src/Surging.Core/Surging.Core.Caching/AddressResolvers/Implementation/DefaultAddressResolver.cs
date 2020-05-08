@@ -14,6 +14,9 @@ using System.Threading.Tasks;
 
 namespace Surging.Core.Caching.AddressResolvers.Implementation
 {
+    /// <summary>
+    /// 默认地址解析程序
+    /// </summary>
     public class DefaultAddressResolver : IAddressResolver
     {
 
@@ -102,9 +105,11 @@ new ConcurrentDictionary<string, ServiceCache>();
                 if (hash != null)
                     foreach (var node in e.Cache.CacheEndpoint)
                     {
-                        var hashNode = node as ConsistentHashNode;
-                        hash.Remove(hashNode);
-                        hash.Add(hashNode);
+              
+                         var hashNode = node as ConsistentHashNode;
+                        var addr = string.Format("{0}:{1}", hashNode.Host, hashNode.Port);
+                        hash.Remove(addr);
+                        hash.Add(hashNode, addr);
                     }
             }
         }
@@ -122,8 +127,9 @@ new ConcurrentDictionary<string, ServiceCache>();
                     foreach (var node in e.Cache.CacheEndpoint)
                     {
                         var hashNode = node as ConsistentHashNode;
-                        hash.Remove(hashNode);
-                        hash.Add(hashNode);
+                        var addr = string.Format("{0}:{1}", hashNode.Host, hashNode.Port);
+                        hash.Remove(addr);
+                        hash.Add(hashNode, addr);
                     }
             }
         }

@@ -263,3 +263,9 @@ paket-files/
 __pycache__/
 *.pyc
 
+/src/Surging.Core/Surging.Core.CPlatform/CPlatformResource.en-US.resources
+api/
+_site/
+
+/src/Surging.ApiGateway
+/src/Surging.Services/Surging.Services.Server/Dockerfile

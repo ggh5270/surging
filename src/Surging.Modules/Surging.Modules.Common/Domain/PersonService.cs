@@ -14,10 +14,12 @@ using Surging.Core.KestrelHttpServer.Internal;
 using System.IO;
 using Surging.Core.KestrelHttpServer;
 using Surging.Core.Common;
+using Surging.Core.Thrift.Attributes;
+using static ThriftCore.Calculator;
 
 namespace Surging.Modules.Common.Domain
 {
-    [ModuleName("Person")]
+    [ModuleName("Person")] 
     public class PersonService : ProxyServiceBase, IUserService
     {
         #region Implementation of IUserService
@@ -64,6 +66,15 @@ namespace Surging.Modules.Common.Domain
         public Task<bool> Update(int id, UserModel model)
         {
             return Task.FromResult(true);
+        }
+
+
+        public Task<UserModel> GetUserById(Guid id)
+        {
+            return Task.FromResult(new UserModel
+            {
+
+            });
         }
 
         public Task<bool> GetDictionary()
@@ -113,9 +124,9 @@ namespace Surging.Modules.Common.Domain
             return Task.FromResult("type is List<int>");
         }
 
-        public async Task<bool> UploadFile(HttpFormCollection form)
+        public async Task<bool> UploadFile(HttpFormCollection form1)
         {
-            var files = form.Files;
+            var files = form1.Files;
             foreach (var file in files)
             {
                 using (var stream = new FileStream(Path.Combine(AppContext.BaseDirectory, file.FileName), FileMode.Create))
@@ -144,6 +155,21 @@ namespace Surging.Modules.Common.Domain
                 throw new FileNotFoundException(fileName);
             }
 
+        }
+
+        public async Task<Sex> SetSex(Sex sex)
+        {
+            return await Task.FromResult(sex);
+        }
+
+        public async Task<Dictionary<string, object>> GetAllThings()
+        {
+            return await Task.FromResult(new Dictionary<string, object> { { "aaa", 12 } });
+        }
+
+        public Task<bool> RemoveUser(UserModel user)
+        {
+            return Task.FromResult(true);
         }
 
         #endregion Implementation of IUserService

@@ -13,11 +13,17 @@ using Surging.Core.System.Intercept;
 using Surging.IModuleServices.Common.Models;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using Surging.Core.CPlatform.Validation; 
+using Metadatas=Surging.Core.ProxyGenerator.Interceptors.Implementation.Metadatas;
 
 namespace Surging.IModuleServices.Common
 {
-    [ServiceBundle("api/{Service}")]
+    [ServiceBundle("api/{Service}/{Method}")]
+    //[ServiceBundle("api/{Service}")]
+    //[ServiceBundle("api/{Service}/{Method}/test")]
+    //[ServiceBundle("api/{Service}/{Method}/test",false)]
     public interface IUserService: IServiceKey
     {
         /// <summary>
@@ -26,19 +32,23 @@ namespace Surging.IModuleServices.Common
         /// <param name="requestData">请求参数</param>
         /// <returns>用户模型</returns>
         Task<UserModel> Authentication(AuthenticationRequestData requestData);
-        
+
         /// <summary>
         /// 获取用户姓名
         /// </summary>
         /// <param name="id">用户编号</param>
         /// <returns></returns>
-        Task<string> GetUserName(int id);
+        [ServiceRoute("{id}")]
+        Task<string> GetUserName([Validate] [Range(1, 10, ErrorMessage = "只能为1到10")] int id);
 
         /// <summary>
         /// 判断是否存在
         /// </summary>
         /// <param name="id">用户编号</param>
         /// <returns></returns>
+        [ServiceRoute("{id}")]
+        [HttpPost(true),HttpPut(true), HttpDelete(true), HttpGet(true)]
+        // [ServiceBundle("api/{Service}/{id}", false)]
         Task<bool> Exists(int id);
 
         /// <summary>
@@ -47,6 +57,7 @@ namespace Surging.IModuleServices.Common
         /// <param name="requestData">请求参数</param>
         /// <returns></returns>
         [Authorization(AuthType = AuthorizationType.JWT)]
+        [HttpPost(true),HttpPut(true)]
         Task<IdentityUser> Save(IdentityUser requestData);
 
         /// <summary>
@@ -55,10 +66,15 @@ namespace Surging.IModuleServices.Common
         /// <param name="userName">用户名</param>
         /// <returns></returns>
         [Authorization(AuthType = AuthorizationType.JWT)]
-        [Command(Strategy = StrategyType.Injection, ShuntStrategy = AddressSelectorMode.HashAlgorithm, ExecutionTimeoutInMilliseconds = 1500, BreakerRequestVolumeThreshold = 3, Injection = @"return 1;", RequestCacheEnabled = true)]
-        [InterceptMethod(CachingMethod.Get, Key = "GetUserId_{0}", CacheSectionType = SectionType.ddlCache, Mode = CacheTargetType.Redis, Time = 480)]
+        [Command(Strategy = StrategyType.Injection, ShuntStrategy = AddressSelectorMode.HashAlgorithm, ExecutionTimeoutInMilliseconds = 1500, BreakerRequestVolumeThreshold = 3, Injection = @"return 1;", RequestCacheEnabled = false)]
+        [InterceptMethod(CachingMethod.Get, Key = "GetUserId_{0}", CacheSectionType = SectionType.ddlCache, L2Key= "GetUserId_{0}",  EnableL2Cache = true, Mode = CacheTargetType.Redis, Time = 480)]
+        [Metadatas.ServiceCacheIntercept(Metadatas.CachingMethod.Get, Key = "GetUserId_{0}", CacheSectionType = "ddlCache", L2Key= "GetUserId_{0}",  EnableL2Cache = true, Mode = Metadatas.CacheTargetType.Redis, Time = 480)]
+       [Metadatas.ServiceLogIntercept()]
+        [ServiceRoute("{userName}")]
         Task<int> GetUserId(string userName);
-        
+
+        Task Try();
+
         /// <summary>
         /// 获取用户最后次sign时间
         /// </summary>
@@ -78,6 +94,8 @@ new Surging.IModuleServices.Common.Models.UserModel
             Age=19
          };", RequestCacheEnabled = true, InjectionNamespaces = new string[] { "Surging.IModuleServices.Common" })]
         [InterceptMethod(CachingMethod.Get, Key = "GetUser_id_{0}", CacheSectionType = SectionType.ddlCache, Mode = CacheTargetType.Redis, Time = 480)]
+        [Metadatas.ServiceCacheIntercept(Metadatas.CachingMethod.Get, Key = "GetUser_{0}_{1}", L2Key = "GetUser_{0}_{1}",EnableL2Cache =true, CacheSectionType = "ddlCache", Mode = Metadatas.CacheTargetType.Redis, Time = 480)]
+        [Validate]
         Task<UserModel> GetUser(UserModel user);
 
         /// <summary>
@@ -112,6 +130,9 @@ new Surging.IModuleServices.Common.Models.UserModel
        /// <returns></returns>
         Task TryThrowException();
 
+        [ServiceRoute("{sex}")]
+        Task<Sex> SetSex(Sex sex);
+
         /// <summary>
         /// 测试基于eventbus 推送消息
         /// </summary>
@@ -131,14 +152,23 @@ new Surging.IModuleServices.Common.Models.UserModel
         /// </summary>
         /// <param name="idList">list 类型参数</param>
         /// <returns></returns>
+        [ServiceMetadata("IsOverload", true)]
         Task<string> GetUser(List<int> idList);
+
+        /// <summary>
+        /// 测序guid
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        [ServiceRoute("{id}")]
+        Task<UserModel> GetUserById(Guid id);
 
         /// <summary>
         /// 测试上传文件
         /// </summary>
         /// <param name="form">HttpFormCollection 类型参数</param>
         /// <returns></returns>
-        Task<bool> UploadFile(HttpFormCollection form);
+        Task<bool> UploadFile(HttpFormCollection form1);
 
         /// <summary>
         /// 测试下载文件
@@ -146,6 +176,16 @@ new Surging.IModuleServices.Common.Models.UserModel
         /// <param name="fileName">文件名</param>
         /// <param name="contentType">Content-Type</param>
         /// <returns></returns>
+        [ServiceRoute("{fileName}/{contentType}")]
         Task<IActionResult> DownFile(string fileName, string contentType);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        Task<Dictionary<string, object>> GetAllThings();
+
+        [Metadatas.ServiceCacheIntercept(Metadatas.CachingMethod.Remove, "GetUser_{0}_{1}", CacheSectionType ="ddlCache", Mode = Metadatas.CacheTargetType.Redis)]
+        public Task<bool> RemoveUser(UserModel user);
     }
 }

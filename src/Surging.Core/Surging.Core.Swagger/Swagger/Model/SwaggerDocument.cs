@@ -47,6 +47,29 @@ namespace Surging.Core.Swagger
         public Dictionary<string, object> Extensions { get; private set; }
     }
 
+    public class DocumentConfiguration
+    {
+        public Info Info { get; set; } = null;
+
+        public DocumentOptions Options { get; set; } = null;
+    }
+
+    public class DocumentOptions
+    {
+        public bool IgnoreFullyQualified { get; set; }
+
+        public string IngressName { get; set; }
+
+        public IEnumerable<MapRoutePath> MapRoutePaths { get; set; }
+    }
+
+    public class MapRoutePath
+    {
+        public string SourceRoutePath { get; set; }
+
+        public string TargetRoutePath { get; set; }
+    }
+
     public class Info
     {
         public Info()

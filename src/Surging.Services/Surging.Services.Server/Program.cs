@@ -11,7 +11,6 @@ using Surging.Core.CPlatform.Utilities;
 using Surging.Core.DotNetty;
 using Surging.Core.EventBusKafka.Configurations;
 //using Surging.Core.EventBusKafka;
-using Surging.Core.EventBusRabbitMQ;
 using Surging.Core.Log4net;
 using Surging.Core.Nlog;
 using Surging.Core.Protocol.Http;
@@ -49,10 +48,10 @@ namespace Surging.Services.Server
                     logger.AddConfiguration(
                         Core.CPlatform.AppConfig.GetSection("Logging"));
                 })
-                .UseServer(options =>{ })
+                .UseServer(options => { })
                 .UseConsoleLifetime()
                 .Configure(build =>
-                build.AddCacheFile("${cachepath}|cacheSettings.json", optional: false, reloadOnChange: true))
+                build.AddCacheFile("${cachepath}|cacheSettings.json", basePath: AppContext.BaseDirectory, optional: false, reloadOnChange: true))
                   .Configure(build =>
                 build.AddCPlatformFile("${surgingpath}|surgingSettings.json", optional: false, reloadOnChange: true))
                 .UseStartup<Startup>()

@@ -2,10 +2,14 @@
 {
     public class ProtocolPortOptions
     {
-        public int MQTTPort { get; set; } = 97;
+        public int MQTTPort { get; set; }
+    
+        public int? HttpPort { get; set; }
 
-        public int HttpPort { get; set; } = 80;
+        public int WSPort { get; set; }
 
-        public int WSPort { get; set; } = 96;
+        public int GrpcPort { get; set; }
+
+        public int UdpPort { get; set; }
     }
 }
